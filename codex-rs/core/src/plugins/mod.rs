@@ -5,6 +5,8 @@ mod render;
 mod store;
 
 pub use manager::AppConnectorId;
+pub use manager::ConfiguredMarketplacePluginSummary;
+pub use manager::ConfiguredMarketplaceSummary;
 pub use manager::LoadedPlugin;
 pub use manager::PluginCapabilitySummary;
 pub use manager::PluginInstallError;
@@ -15,5 +17,7 @@ pub(crate) use manager::plugin_namespace_for_skill_path;
 pub(crate) use manifest::load_plugin_manifest;
 pub(crate) use manifest::plugin_manifest_name;
 pub(crate) use render::render_plugins_section;
+pub use marketplace::MarketplaceError;
+pub use marketplace::MarketplacePluginSourceSummary;
 pub use store::PluginId;
 pub use store::PluginInstallResult;
