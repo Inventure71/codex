@@ -2381,8 +2381,7 @@ async fn reasoning_selection_in_plan_mode_opens_scope_prompt_event() {
         AppEvent::OpenPlanReasoningScopePrompt {
             model,
             effort: Some(_),
-            ..
-        } if model == "gpt-5.1-codex-max"
+        } if model.model == "gpt-5.1-codex-max"
     );
 }
 
@@ -2447,8 +2446,7 @@ async fn reasoning_selection_in_plan_mode_matching_plan_effort_but_different_glo
         AppEvent::OpenPlanReasoningScopePrompt {
             model,
             effort: Some(ReasoningEffortConfig::Medium),
-            ..
-        } if model == "gpt-5.1-codex-max"
+        } if model.model == "gpt-5.1-codex-max"
     );
 }
 

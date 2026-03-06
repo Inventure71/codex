@@ -245,10 +245,8 @@ pub(crate) enum AppEvent {
 
     /// Open the Plan-mode reasoning scope prompt for the selected model/effort/settings.
     OpenPlanReasoningScopePrompt {
-        model: String,
+        model: ModelPreset,
         effort: Option<ReasoningEffort>,
-        context_window: Option<i64>,
-        auto_compact_token_limit: Option<i64>,
     },
 
     /// Open the full model picker (non-auto models).

@@ -2299,18 +2299,8 @@ impl App {
                     should_prompt_plan_mode_scope,
                 );
             }
-            AppEvent::OpenPlanReasoningScopePrompt {
-                model,
-                effort,
-                context_window,
-                auto_compact_token_limit,
-            } => {
-                self.chat_widget.open_plan_reasoning_scope_prompt(
-                    model,
-                    effort,
-                    context_window,
-                    auto_compact_token_limit,
-                );
+            AppEvent::OpenPlanReasoningScopePrompt { model, effort } => {
+                self.chat_widget.open_plan_reasoning_scope_prompt(model, effort);
             }
             AppEvent::OpenAllModelsPopup { models } => {
                 self.chat_widget.open_all_models_popup(models);

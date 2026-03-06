@@ -231,13 +231,13 @@ impl StatusHistoryCell {
         let session_id = session_id.as_ref().map(std::string::ToString::to_string);
         let forked_from = forked_from.map(|id| id.to_string());
         let default_usage = TokenUsage::default();
-        let context_window = config
-            .model_context_window
-            .or_else(|| token_info.and_then(|info| info.model_context_window));
         let context_usage = match token_info {
             Some(info) => &info.last_token_usage,
             None => &default_usage,
         };
+        let context_window = token_info
+            .and_then(|info| info.model_context_window)
+            .or(config.model_context_window);
         let context_window = context_window.map(|window| StatusContextWindowData {
             percent_remaining: context_usage.percent_of_context_window_remaining(window),
             tokens_in_context: context_usage.tokens_in_context_window(),
