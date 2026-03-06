@@ -178,6 +178,12 @@ pub(crate) enum AppEvent {
     /// Update the current reasoning effort in the running app and widget.
     UpdateReasoningEffort(Option<ReasoningEffort>),
 
+    /// Update the current model context settings in the running app and widget.
+    UpdateModelContextSettings {
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
+    },
+
     /// Update the current model slug in the running app and widget.
     UpdateModel(String),
 
@@ -187,10 +193,12 @@ pub(crate) enum AppEvent {
     /// Update the current personality in the running app and widget.
     UpdatePersonality(Personality),
 
-    /// Persist the selected model and reasoning effort to the appropriate config.
+    /// Persist the selected model, reasoning effort, and context settings to config.
     PersistModelSelection {
         model: String,
         effort: Option<ReasoningEffort>,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
     },
 
     /// Persist the selected personality to the appropriate config.
@@ -228,10 +236,19 @@ pub(crate) enum AppEvent {
         model: ModelPreset,
     },
 
-    /// Open the Plan-mode reasoning scope prompt for the selected model/effort.
+    /// Open the context window selection popup after picking a reasoning level.
+    OpenContextWindowPopup {
+        model: ModelPreset,
+        effort: Option<ReasoningEffort>,
+        should_prompt_plan_mode_scope: bool,
+    },
+
+    /// Open the Plan-mode reasoning scope prompt for the selected model/effort/settings.
     OpenPlanReasoningScopePrompt {
         model: String,
         effort: Option<ReasoningEffort>,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
     },
 
     /// Open the full model picker (non-auto models).

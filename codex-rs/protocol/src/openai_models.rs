@@ -89,6 +89,19 @@ pub struct ReasoningEffortPreset {
     pub description: String,
 }
 
+/// A context window option that can be surfaced for a model.
+#[derive(Debug, Clone, Deserialize, Serialize, TS, JsonSchema, PartialEq, Eq)]
+pub struct ContextWindowPreset {
+    /// Short human label shown in UIs.
+    pub label: String,
+    /// Maximum context window in tokens exposed for this preset.
+    pub context_window: i64,
+    /// Token threshold that triggers auto-compaction for this preset.
+    pub auto_compact_token_limit: Option<i64>,
+    /// Short human description shown next to the preset in UIs.
+    pub description: String,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, TS, JsonSchema, PartialEq)]
 pub struct ModelUpgrade {
     pub id: String,
@@ -135,6 +148,9 @@ pub struct ModelPreset {
     /// Input modalities accepted when composing user turns for this preset.
     #[serde(default = "default_input_modalities")]
     pub input_modalities: Vec<InputModality>,
+    /// Supported context window presets for this model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_context_window_presets: Vec<ContextWindowPreset>,
 }
 
 /// Visibility of a model in the picker or APIs.
@@ -266,6 +282,9 @@ pub struct ModelInfo {
     /// context window when available.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_compact_token_limit: Option<i64>,
+    /// Supported context window presets for this model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_context_window_presets: Vec<ContextWindowPreset>,
     /// Percentage of the context window considered usable for inputs, after
     /// reserving headroom for system prompts, tool overhead, and model output.
     #[serde(default = "default_effective_context_window_percent")]
@@ -435,6 +454,7 @@ impl From<ModelInfo> for ModelPreset {
             availability_nux: info.availability_nux,
             supported_in_api: info.supported_in_api,
             input_modalities: info.input_modalities,
+            supported_context_window_presets: info.supported_context_window_presets,
         }
     }
 }
@@ -533,6 +553,7 @@ mod tests {
             supports_image_detail_original: false,
             context_window: None,
             auto_compact_token_limit: None,
+            supported_context_window_presets: vec![],
             effective_context_window_percent: 95,
             experimental_supported_tools: vec![],
             input_modalities: default_input_modalities(),

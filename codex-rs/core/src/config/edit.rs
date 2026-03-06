@@ -27,6 +27,13 @@ pub enum ConfigEdit {
         model: Option<String>,
         effort: Option<ReasoningEffort>,
     },
+    /// Update the active model selection plus optional reasoning and context settings.
+    SetModelSelection {
+        model: Option<String>,
+        effort: Option<ReasoningEffort>,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
+    },
     /// Update the service tier preference for future turns.
     SetServiceTier { service_tier: Option<ServiceTier> },
     /// Update the active (or default) model personality.
@@ -327,6 +334,31 @@ impl ConfigDocument {
                 mutated |= self.write_profile_value(
                     &["model_reasoning_effort"],
                     effort.map(|effort| value(effort.to_string())),
+                );
+                mutated
+            }),
+            ConfigEdit::SetModelSelection {
+                model,
+                effort,
+                context_window,
+                auto_compact_token_limit,
+            } => Ok({
+                let mut mutated = false;
+                mutated |= self.write_profile_value(
+                    &["model"],
+                    model.as_ref().map(|model_value| value(model_value.clone())),
+                );
+                mutated |= self.write_profile_value(
+                    &["model_reasoning_effort"],
+                    effort.map(|selected_effort| value(selected_effort.to_string())),
+                );
+                mutated |= self.write_profile_value(
+                    &["model_context_window"],
+                    context_window.map(value),
+                );
+                mutated |= self.write_profile_value(
+                    &["model_auto_compact_token_limit"],
+                    auto_compact_token_limit.map(value),
                 );
                 mutated
             }),
@@ -777,6 +809,22 @@ impl ConfigEditsBuilder {
         self.edits.push(ConfigEdit::SetModel {
             model: model.map(ToOwned::to_owned),
             effort,
+        });
+        self
+    }
+
+    pub fn set_model_selection(
+        mut self,
+        model: Option<&str>,
+        effort: Option<ReasoningEffort>,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
+    ) -> Self {
+        self.edits.push(ConfigEdit::SetModelSelection {
+            model: model.map(ToOwned::to_owned),
+            effort,
+            context_window,
+            auto_compact_token_limit,
         });
         self
     }

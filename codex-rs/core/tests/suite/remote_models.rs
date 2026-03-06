@@ -307,6 +307,7 @@ async fn remote_models_remote_model_uses_unified_exec() -> Result<()> {
         supports_image_detail_original: false,
         context_window: Some(272_000),
         auto_compact_token_limit: None,
+        supported_context_window_presets: vec![],
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     };
@@ -549,6 +550,7 @@ async fn remote_models_apply_remote_base_instructions() -> Result<()> {
         supports_image_detail_original: false,
         context_window: Some(272_000),
         auto_compact_token_limit: None,
+        supported_context_window_presets: vec![],
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     };
@@ -1015,6 +1017,7 @@ fn test_remote_model_with_policy(
         supports_image_detail_original: false,
         context_window: Some(272_000),
         auto_compact_token_limit: None,
+        supported_context_window_presets: vec![],
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     }

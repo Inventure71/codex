@@ -283,6 +283,14 @@ pub enum Op {
         #[serde(skip_serializing_if = "Option::is_none")]
         effort: Option<Option<ReasoningEffortConfig>>,
 
+        /// Updated model context window override for future turns.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model_context_window: Option<Option<i64>>,
+
+        /// Updated auto-compaction threshold override for future turns.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model_auto_compact_token_limit: Option<Option<i64>>,
+
         /// Updated reasoning summary preference (honored only for reasoning-capable models).
         #[serde(skip_serializing_if = "Option::is_none")]
         summary: Option<ReasoningSummaryConfig>,

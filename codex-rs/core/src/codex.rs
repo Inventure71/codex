@@ -475,6 +475,8 @@ impl Codex {
             collaboration_mode,
             model_reasoning_summary: config.model_reasoning_summary,
             service_tier: config.service_tier,
+            model_context_window: config.model_context_window,
+            model_auto_compact_token_limit: config.model_auto_compact_token_limit,
             developer_instructions: config.developer_instructions.clone(),
             user_instructions,
             personality: config.personality,
@@ -850,6 +852,8 @@ pub(crate) struct SessionConfiguration {
     collaboration_mode: CollaborationMode,
     model_reasoning_summary: Option<ReasoningSummaryConfig>,
     service_tier: Option<ServiceTier>,
+    model_context_window: Option<i64>,
+    model_auto_compact_token_limit: Option<i64>,
 
     /// Developer instructions that supplement the base instructions.
     developer_instructions: Option<String>,
@@ -928,6 +932,12 @@ impl SessionConfiguration {
         if let Some(service_tier) = updates.service_tier {
             next_configuration.service_tier = service_tier;
         }
+        if let Some(model_context_window) = updates.model_context_window {
+            next_configuration.model_context_window = model_context_window;
+        }
+        if let Some(model_auto_compact_token_limit) = updates.model_auto_compact_token_limit {
+            next_configuration.model_auto_compact_token_limit = model_auto_compact_token_limit;
+        }
         if let Some(personality) = updates.personality {
             next_configuration.personality = Some(personality);
         }
@@ -957,6 +967,8 @@ pub(crate) struct SessionSettingsUpdate {
     pub(crate) sandbox_policy: Option<SandboxPolicy>,
     pub(crate) windows_sandbox_level: Option<WindowsSandboxLevel>,
     pub(crate) collaboration_mode: Option<CollaborationMode>,
+    pub(crate) model_context_window: Option<Option<i64>>,
+    pub(crate) model_auto_compact_token_limit: Option<Option<i64>>,
     pub(crate) reasoning_summary: Option<ReasoningSummaryConfig>,
     pub(crate) service_tier: Option<Option<ServiceTier>>,
     pub(crate) final_output_json_schema: Option<Option<Value>>,
@@ -1030,6 +1042,9 @@ impl Session {
             session_configuration.collaboration_mode.reasoning_effort();
         per_turn_config.model_reasoning_summary = session_configuration.model_reasoning_summary;
         per_turn_config.service_tier = session_configuration.service_tier;
+        per_turn_config.model_context_window = session_configuration.model_context_window;
+        per_turn_config.model_auto_compact_token_limit =
+            session_configuration.model_auto_compact_token_limit;
         per_turn_config.personality = session_configuration.personality;
         let resolved_web_search_mode = resolve_web_search_mode_for_turn(
             &per_turn_config.web_search_mode,
@@ -3729,6 +3744,8 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                     windows_sandbox_level,
                     model,
                     effort,
+                    model_context_window,
+                    model_auto_compact_token_limit,
                     summary,
                     service_tier,
                     collaboration_mode,
@@ -3753,6 +3770,8 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                             sandbox_policy,
                             windows_sandbox_level,
                             collaboration_mode: Some(collaboration_mode),
+                            model_context_window,
+                            model_auto_compact_token_limit,
                             reasoning_summary: summary,
                             service_tier,
                             personality,
@@ -4035,6 +4054,8 @@ mod handlers {
                         sandbox_policy: Some(sandbox_policy),
                         windows_sandbox_level: None,
                         collaboration_mode,
+                        model_context_window: None,
+                        model_auto_compact_token_limit: None,
                         reasoning_summary: summary,
                         service_tier,
                         final_output_json_schema: Some(final_output_json_schema),
@@ -4049,6 +4070,8 @@ mod handlers {
             } => (
                 items,
                 SessionSettingsUpdate {
+                    model_context_window: None,
+                    model_auto_compact_token_limit: None,
                     final_output_json_schema: Some(final_output_json_schema),
                     ..Default::default()
                 },
@@ -7824,6 +7847,8 @@ mod tests {
             provider: config.model_provider.clone(),
             collaboration_mode,
             model_reasoning_summary: config.model_reasoning_summary,
+            model_context_window: config.model_context_window,
+            model_auto_compact_token_limit: config.model_auto_compact_token_limit,
             developer_instructions: config.developer_instructions.clone(),
             user_instructions: config.user_instructions.clone(),
             service_tier: None,
@@ -7919,6 +7944,8 @@ mod tests {
             provider: config.model_provider.clone(),
             collaboration_mode,
             model_reasoning_summary: config.model_reasoning_summary,
+            model_context_window: config.model_context_window,
+            model_auto_compact_token_limit: config.model_auto_compact_token_limit,
             developer_instructions: config.developer_instructions.clone(),
             user_instructions: config.user_instructions.clone(),
             service_tier: None,
@@ -8245,6 +8272,8 @@ mod tests {
             provider: config.model_provider.clone(),
             collaboration_mode,
             model_reasoning_summary: config.model_reasoning_summary,
+            model_context_window: config.model_context_window,
+            model_auto_compact_token_limit: config.model_auto_compact_token_limit,
             developer_instructions: config.developer_instructions.clone(),
             user_instructions: config.user_instructions.clone(),
             service_tier: None,
@@ -8304,6 +8333,8 @@ mod tests {
             provider: config.model_provider.clone(),
             collaboration_mode,
             model_reasoning_summary: config.model_reasoning_summary,
+            model_context_window: config.model_context_window,
+            model_auto_compact_token_limit: config.model_auto_compact_token_limit,
             developer_instructions: config.developer_instructions.clone(),
             user_instructions: config.user_instructions.clone(),
             service_tier: None,
@@ -8396,6 +8427,8 @@ mod tests {
             provider: config.model_provider.clone(),
             collaboration_mode,
             model_reasoning_summary: config.model_reasoning_summary,
+            model_context_window: config.model_context_window,
+            model_auto_compact_token_limit: config.model_auto_compact_token_limit,
             developer_instructions: config.developer_instructions.clone(),
             user_instructions: config.user_instructions.clone(),
             service_tier: None,
@@ -8805,6 +8838,8 @@ mod tests {
             provider: config.model_provider.clone(),
             collaboration_mode,
             model_reasoning_summary: config.model_reasoning_summary,
+            model_context_window: config.model_context_window,
+            model_auto_compact_token_limit: config.model_auto_compact_token_limit,
             developer_instructions: config.developer_instructions.clone(),
             user_instructions: config.user_instructions.clone(),
             service_tier: None,

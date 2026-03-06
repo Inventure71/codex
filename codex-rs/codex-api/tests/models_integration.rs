@@ -90,6 +90,7 @@ async fn models_client_hits_models_endpoint() {
             supports_image_detail_original: false,
             context_window: Some(272_000),
             auto_compact_token_limit: None,
+            supported_context_window_presets: vec![],
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
             input_modalities: default_input_modalities(),

@@ -290,6 +290,7 @@ use codex_core::AuthManager;
 use codex_core::CodexAuth;
 use codex_core::ThreadManager;
 use codex_file_search::FileMatch;
+use codex_protocol::openai_models::ContextWindowPreset;
 use codex_protocol::openai_models::InputModality;
 use codex_protocol::openai_models::ModelPreset;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
@@ -5303,10 +5304,11 @@ impl ChatWidget {
     }
 
     fn status_line_context_window_size(&self) -> Option<i64> {
-        self.token_info
-            .as_ref()
-            .and_then(|info| info.model_context_window)
-            .or(self.config.model_context_window)
+        self.config.model_context_window.or_else(|| {
+            self.token_info
+                .as_ref()
+                .and_then(|info| info.model_context_window)
+        })
     }
 
     fn status_line_context_remaining_percent(&self) -> Option<i64> {
@@ -5549,6 +5551,8 @@ impl ChatWidget {
                 windows_sandbox_level: None,
                 model: Some(switch_model_for_events.clone()),
                 effort: Some(Some(default_effort)),
+                model_context_window: None,
+                model_auto_compact_token_limit: None,
                 summary: None,
                 service_tier: None,
                 collaboration_mode: None,
@@ -5669,6 +5673,8 @@ impl ChatWidget {
                         sandbox_policy: None,
                         model: None,
                         effort: None,
+                        model_context_window: None,
+                        model_auto_compact_token_limit: None,
                         summary: None,
                         service_tier: None,
                         collaboration_mode: None,
@@ -6094,15 +6100,23 @@ impl ChatWidget {
                 tx.send(AppEvent::OpenPlanReasoningScopePrompt {
                     model: model_for_action.clone(),
                     effort: effort_for_action,
+                    context_window: None,
+                    auto_compact_token_limit: None,
                 });
                 return;
             }
 
             tx.send(AppEvent::UpdateModel(model_for_action.clone()));
             tx.send(AppEvent::UpdateReasoningEffort(effort_for_action));
+            tx.send(AppEvent::UpdateModelContextSettings {
+                context_window: None,
+                auto_compact_token_limit: None,
+            });
             tx.send(AppEvent::PersistModelSelection {
                 model: model_for_action.clone(),
                 effort: effort_for_action,
+                context_window: None,
+                auto_compact_token_limit: None,
             });
         })]
     }
@@ -6131,6 +6145,8 @@ impl ChatWidget {
         &mut self,
         model: String,
         effort: Option<ReasoningEffortConfig>,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
     ) {
         let reasoning_phrase = match effort {
             Some(ReasoningEffortConfig::None) => "no reasoning".to_string(),
@@ -6171,6 +6187,10 @@ impl ChatWidget {
             let model = model.clone();
             move |tx| {
                 tx.send(AppEvent::UpdateModel(model.clone()));
+                tx.send(AppEvent::UpdateModelContextSettings {
+                    context_window,
+                    auto_compact_token_limit,
+                });
                 tx.send(AppEvent::UpdatePlanModeReasoningEffort(effort));
                 tx.send(AppEvent::PersistPlanModeReasoningEffort(effort));
             }
@@ -6178,11 +6198,17 @@ impl ChatWidget {
         let all_modes_actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
             tx.send(AppEvent::UpdateModel(model.clone()));
             tx.send(AppEvent::UpdateReasoningEffort(effort));
+            tx.send(AppEvent::UpdateModelContextSettings {
+                context_window,
+                auto_compact_token_limit,
+            });
             tx.send(AppEvent::UpdatePlanModeReasoningEffort(effort));
             tx.send(AppEvent::PersistPlanModeReasoningEffort(effort));
             tx.send(AppEvent::PersistModelSelection {
                 model: model.clone(),
                 effort,
+                context_window,
+                auto_compact_token_limit,
             });
         })];
 
@@ -6216,7 +6242,7 @@ impl ChatWidget {
     /// Open a popup to choose the reasoning effort (stage 2) for the given model.
     pub(crate) fn open_reasoning_popup(&mut self, preset: ModelPreset) {
         let default_effort: ReasoningEffortConfig = preset.default_reasoning_effort;
-        let supported = preset.supported_reasoning_efforts;
+        let supported = preset.supported_reasoning_efforts.clone();
         let in_plan_mode =
             self.collaboration_modes_enabled() && self.active_mode_kind() == ModeKind::Plan;
 
@@ -6263,16 +6289,9 @@ impl ChatWidget {
 
         if choices.len() == 1 {
             let selected_effort = choices.first().and_then(|c| c.stored);
-            let selected_model = preset.model;
-            if self.should_prompt_plan_mode_reasoning_scope(&selected_model, selected_effort) {
-                self.app_event_tx
-                    .send(AppEvent::OpenPlanReasoningScopePrompt {
-                        model: selected_model,
-                        effort: selected_effort,
-                    });
-            } else {
-                self.apply_model_and_effort(selected_model, selected_effort);
-            }
+            let should_prompt_plan_mode_scope =
+                self.should_prompt_plan_mode_reasoning_scope(&preset.model, selected_effort);
+            self.open_context_window_popup(preset, selected_effort, should_prompt_plan_mode_scope);
             return;
         }
 
@@ -6335,24 +6354,16 @@ impl ChatWidget {
                 None
             };
 
-            let model_for_action = model_slug.clone();
             let choice_effort = choice.stored;
             let should_prompt_plan_mode_scope =
                 self.should_prompt_plan_mode_reasoning_scope(model_slug.as_str(), choice_effort);
+            let preset_for_action = preset.clone();
             let actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
-                if should_prompt_plan_mode_scope {
-                    tx.send(AppEvent::OpenPlanReasoningScopePrompt {
-                        model: model_for_action.clone(),
-                        effort: choice_effort,
-                    });
-                } else {
-                    tx.send(AppEvent::UpdateModel(model_for_action.clone()));
-                    tx.send(AppEvent::UpdateReasoningEffort(choice_effort));
-                    tx.send(AppEvent::PersistModelSelection {
-                        model: model_for_action.clone(),
-                        effort: choice_effort,
-                    });
-                }
+                tx.send(AppEvent::OpenContextWindowPopup {
+                    model: preset_for_action.clone(),
+                    effort: choice_effort,
+                    should_prompt_plan_mode_scope,
+                });
             })];
 
             items.push(SelectionItem {
@@ -6380,6 +6391,161 @@ impl ChatWidget {
         });
     }
 
+    pub(crate) fn open_context_window_popup(
+        &mut self,
+        preset: ModelPreset,
+        effort: Option<ReasoningEffortConfig>,
+        should_prompt_plan_mode_scope: bool,
+    ) {
+        let supported = Self::effective_context_window_presets(&preset);
+        if supported.is_empty() {
+            if should_prompt_plan_mode_scope {
+                self.app_event_tx
+                    .send(AppEvent::OpenPlanReasoningScopePrompt {
+                        model: preset.model,
+                        effort,
+                        context_window: None,
+                        auto_compact_token_limit: None,
+                    });
+            } else {
+                self.apply_model_selection(preset.model, effort, None, None);
+            }
+            return;
+        }
+
+        if supported.len() == 1 {
+            let selected = &supported[0];
+            if should_prompt_plan_mode_scope {
+                self.app_event_tx
+                    .send(AppEvent::OpenPlanReasoningScopePrompt {
+                        model: preset.model,
+                        effort,
+                        context_window: Some(selected.context_window),
+                        auto_compact_token_limit: selected.auto_compact_token_limit,
+                    });
+            } else {
+                self.apply_model_selection(
+                    preset.model,
+                    effort,
+                    Some(selected.context_window),
+                    selected.auto_compact_token_limit,
+                );
+            }
+            return;
+        }
+
+        let display_name = if preset.display_name.is_empty() {
+            preset.model.clone()
+        } else {
+            preset.display_name.clone()
+        };
+        let is_current_model = self.current_model() == preset.model.as_str();
+        let highlight_choice = if is_current_model {
+            supported
+                .iter()
+                .position(|choice| {
+                    Some(choice.context_window) == self.config.model_context_window
+                        && choice.auto_compact_token_limit
+                            == self.config.model_auto_compact_token_limit
+                })
+                .unwrap_or(0)
+        } else {
+            0
+        };
+        let mut items: Vec<SelectionItem> = Vec::new();
+        for (index, choice) in supported.iter().enumerate() {
+            let mut name = choice.label.clone();
+            if index == 0 {
+                name.push_str(" (default)");
+            }
+            let choice_context_window = choice.context_window;
+            let choice_auto_compact_token_limit = choice.auto_compact_token_limit;
+            let choice_description = if choice.description.is_empty() {
+                let auto_compact = choice_auto_compact_token_limit
+                    .unwrap_or((choice_context_window * 9) / 10);
+                Some(format!(
+                    "Uses {choice_context_window} tokens of context and auto-compacts at {auto_compact} tokens."
+                ))
+            } else {
+                Some(choice.description.clone())
+            };
+            let model_for_action = preset.model.clone();
+            let actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
+                if should_prompt_plan_mode_scope {
+                    tx.send(AppEvent::OpenPlanReasoningScopePrompt {
+                        model: model_for_action.clone(),
+                        effort,
+                        context_window: Some(choice_context_window),
+                        auto_compact_token_limit: choice_auto_compact_token_limit,
+                    });
+                } else {
+                    tx.send(AppEvent::UpdateModel(model_for_action.clone()));
+                    tx.send(AppEvent::UpdateReasoningEffort(effort));
+                    tx.send(AppEvent::UpdateModelContextSettings {
+                        context_window: Some(choice_context_window),
+                        auto_compact_token_limit: choice_auto_compact_token_limit,
+                    });
+                    tx.send(AppEvent::PersistModelSelection {
+                        model: model_for_action.clone(),
+                        effort,
+                        context_window: Some(choice_context_window),
+                        auto_compact_token_limit: choice_auto_compact_token_limit,
+                    });
+                }
+            })];
+            items.push(SelectionItem {
+                name,
+                description: choice_description,
+                is_current: is_current_model && index == highlight_choice,
+                actions,
+                dismiss_on_select: true,
+                ..Default::default()
+            });
+        }
+
+        let mut header = ColumnRenderable::new();
+        header.push(Line::from(
+            format!("Select Context Length for {display_name}").bold(),
+        ));
+
+        self.bottom_pane.show_selection_view(SelectionViewParams {
+            header: Box::new(header),
+            footer_hint: Some(standard_popup_hint_line()),
+            items,
+            initial_selected_idx: Some(highlight_choice),
+            ..Default::default()
+        });
+    }
+
+    fn effective_context_window_presets(preset: &ModelPreset) -> Vec<ContextWindowPreset> {
+        if !preset.supported_context_window_presets.is_empty() {
+            return preset.supported_context_window_presets.clone();
+        }
+
+        if preset.model == "gpt-5.4" {
+            return vec![
+                ContextWindowPreset {
+                    label: "264k".to_string(),
+                    context_window: 264_000,
+                    auto_compact_token_limit: Some(237_600),
+                    description:
+                        "Standard context size with the existing 90% auto-compact threshold."
+                            .to_string(),
+                },
+                ContextWindowPreset {
+                    label: "1M".to_string(),
+                    context_window: 1_000_000,
+                    auto_compact_token_limit: Some(800_000),
+                    description:
+                        "Extended context size with a custom 80% auto-compact threshold."
+                            .to_string(),
+                },
+            ];
+        }
+
+        Vec::new()
+    }
+
     fn reasoning_effort_label(effort: ReasoningEffortConfig) -> &'static str {
         match effort {
             ReasoningEffortConfig::None => "None",
@@ -6391,20 +6557,42 @@ impl ChatWidget {
         }
     }
 
-    fn apply_model_and_effort_without_persist(
+    fn apply_model_selection_without_persist(
         &self,
         model: String,
         effort: Option<ReasoningEffortConfig>,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
     ) {
         self.app_event_tx.send(AppEvent::UpdateModel(model));
         self.app_event_tx
             .send(AppEvent::UpdateReasoningEffort(effort));
+        self.app_event_tx
+            .send(AppEvent::UpdateModelContextSettings {
+                context_window,
+                auto_compact_token_limit,
+            });
     }
 
-    fn apply_model_and_effort(&self, model: String, effort: Option<ReasoningEffortConfig>) {
-        self.apply_model_and_effort_without_persist(model.clone(), effort);
-        self.app_event_tx
-            .send(AppEvent::PersistModelSelection { model, effort });
+    fn apply_model_selection(
+        &self,
+        model: String,
+        effort: Option<ReasoningEffortConfig>,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
+    ) {
+        self.apply_model_selection_without_persist(
+            model.clone(),
+            effort,
+            context_window,
+            auto_compact_token_limit,
+        );
+        self.app_event_tx.send(AppEvent::PersistModelSelection {
+            model,
+            effort,
+            context_window,
+            auto_compact_token_limit,
+        });
     }
 
     /// Open the permissions popup (alias for /permissions).
@@ -6586,6 +6774,8 @@ impl ChatWidget {
                 windows_sandbox_level: None,
                 model: None,
                 effort: None,
+                model_context_window: None,
+                model_auto_compact_token_limit: None,
                 summary: None,
                 service_tier: None,
                 collaboration_mode: None,
@@ -7207,6 +7397,30 @@ impl ChatWidget {
         }
     }
 
+    pub(crate) fn set_model_context_settings(
+        &mut self,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
+    ) {
+        self.config.model_context_window = context_window;
+        self.config.model_auto_compact_token_limit = auto_compact_token_limit;
+        self.app_event_tx
+            .send(AppEvent::CodexOp(Op::OverrideTurnContext {
+                cwd: None,
+                approval_policy: None,
+                sandbox_policy: None,
+                windows_sandbox_level: None,
+                model: None,
+                effort: None,
+                model_context_window: Some(context_window),
+                model_auto_compact_token_limit: Some(auto_compact_token_limit),
+                summary: None,
+                service_tier: None,
+                collaboration_mode: None,
+                personality: None,
+            }));
+    }
+
     /// Set the personality in the widget's config copy.
     pub(crate) fn set_personality(&mut self, personality: Personality) {
         self.config.personality = Some(personality);
@@ -7273,6 +7487,8 @@ impl ChatWidget {
                 windows_sandbox_level: None,
                 model: None,
                 effort: None,
+                model_context_window: None,
+                model_auto_compact_token_limit: None,
                 summary: None,
                 service_tier: Some(service_tier),
                 collaboration_mode: None,

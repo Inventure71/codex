@@ -2380,7 +2380,8 @@ async fn reasoning_selection_in_plan_mode_opens_scope_prompt_event() {
         event,
         AppEvent::OpenPlanReasoningScopePrompt {
             model,
-            effort: Some(_)
+            effort: Some(_),
+            ..
         } if model == "gpt-5.1-codex-max"
     );
 }
@@ -2445,7 +2446,8 @@ async fn reasoning_selection_in_plan_mode_matching_plan_effort_but_different_glo
         event,
         AppEvent::OpenPlanReasoningScopePrompt {
             model,
-            effort: Some(ReasoningEffortConfig::Medium)
+            effort: Some(ReasoningEffortConfig::Medium),
+            ..
         } if model == "gpt-5.1-codex-max"
     );
 }
@@ -2533,7 +2535,11 @@ async fn plan_reasoning_scope_popup_all_modes_persists_global_and_plan_override(
     assert!(
         events.iter().any(|event| matches!(
             event,
-            AppEvent::PersistModelSelection { model, effort: Some(ReasoningEffortConfig::High) }
+            AppEvent::PersistModelSelection {
+                model,
+                effort: Some(ReasoningEffortConfig::High),
+                ..
+            }
                 if model == "gpt-5.1-codex-max"
         )),
         "expected global model reasoning selection persistence; events: {events:?}"
@@ -6980,6 +6986,7 @@ async fn model_picker_hides_show_in_picker_false_models_from_cache() {
         availability_nux: None,
         supported_in_api: true,
         input_modalities: default_input_modalities(),
+        supported_context_window_presets: vec![],
     };
 
     chat.open_model_popup_with_presets(vec![
@@ -7249,6 +7256,7 @@ async fn single_reasoning_option_skips_selection() {
         availability_nux: None,
         supported_in_api: true,
         input_modalities: default_input_modalities(),
+        supported_context_window_presets: vec![],
     };
     chat.open_reasoning_popup(preset);
 

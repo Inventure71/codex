@@ -5140,6 +5140,8 @@ impl CodexMessageProcessor {
                     windows_sandbox_level: None,
                     model: params.model,
                     effort: params.effort.map(Some),
+                    model_context_window: None,
+                    model_auto_compact_token_limit: None,
                     summary: params.summary,
                     service_tier: params.service_tier,
                     collaboration_mode,

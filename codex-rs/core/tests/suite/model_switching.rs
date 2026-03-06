@@ -71,6 +71,7 @@ fn test_model_info(
         supports_image_detail_original: false,
         context_window: Some(272_000),
         auto_compact_token_limit: None,
+        supported_context_window_presets: vec![],
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     }
@@ -691,6 +692,7 @@ async fn model_switch_to_smaller_model_updates_token_context_window() -> Result<
         supports_image_detail_original: false,
         context_window: Some(large_context_window),
         auto_compact_token_limit: None,
+        supported_context_window_presets: vec![],
         effective_context_window_percent,
         experimental_supported_tools: Vec::new(),
     };

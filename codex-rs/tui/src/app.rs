@@ -601,11 +601,19 @@ async fn handle_model_migration_prompt_if_needed(
 
                 config.model = Some(target_model.clone());
                 config.model_reasoning_effort = mapped_effort;
+                config.model_context_window = None;
+                config.model_auto_compact_token_limit = None;
                 app_event_tx.send(AppEvent::UpdateModel(target_model.clone()));
                 app_event_tx.send(AppEvent::UpdateReasoningEffort(mapped_effort));
+                app_event_tx.send(AppEvent::UpdateModelContextSettings {
+                    context_window: None,
+                    auto_compact_token_limit: None,
+                });
                 app_event_tx.send(AppEvent::PersistModelSelection {
                     model: target_model.clone(),
                     effort: mapped_effort,
+                    context_window: None,
+                    auto_compact_token_limit: None,
                 });
             }
             ModelMigrationOutcome::Rejected => {
@@ -2253,6 +2261,16 @@ impl App {
                 self.on_update_reasoning_effort(effort);
                 self.refresh_status_line();
             }
+            AppEvent::UpdateModelContextSettings {
+                context_window,
+                auto_compact_token_limit,
+            } => {
+                self.on_update_model_context_settings(
+                    context_window,
+                    auto_compact_token_limit,
+                );
+                self.refresh_status_line();
+            }
             AppEvent::UpdateModel(model) => {
                 self.chat_widget.set_model(&model);
                 self.refresh_status_line();
@@ -2270,9 +2288,29 @@ impl App {
             AppEvent::OpenReasoningPopup { model } => {
                 self.chat_widget.open_reasoning_popup(model);
             }
-            AppEvent::OpenPlanReasoningScopePrompt { model, effort } => {
-                self.chat_widget
-                    .open_plan_reasoning_scope_prompt(model, effort);
+            AppEvent::OpenContextWindowPopup {
+                model,
+                effort,
+                should_prompt_plan_mode_scope,
+            } => {
+                self.chat_widget.open_context_window_popup(
+                    model,
+                    effort,
+                    should_prompt_plan_mode_scope,
+                );
+            }
+            AppEvent::OpenPlanReasoningScopePrompt {
+                model,
+                effort,
+                context_window,
+                auto_compact_token_limit,
+            } => {
+                self.chat_widget.open_plan_reasoning_scope_prompt(
+                    model,
+                    effort,
+                    context_window,
+                    auto_compact_token_limit,
+                );
             }
             AppEvent::OpenAllModelsPopup { models } => {
                 self.chat_widget.open_all_models_popup(models);
@@ -2558,6 +2596,8 @@ impl App {
                                         windows_sandbox_level: Some(windows_sandbox_level),
                                         model: None,
                                         effort: None,
+                                        model_context_window: None,
+                                        model_auto_compact_token_limit: None,
                                         summary: None,
                                         service_tier: None,
                                         collaboration_mode: None,
@@ -2581,6 +2621,8 @@ impl App {
                                         windows_sandbox_level: Some(windows_sandbox_level),
                                         model: None,
                                         effort: None,
+                                        model_context_window: None,
+                                        model_auto_compact_token_limit: None,
                                         summary: None,
                                         service_tier: None,
                                         collaboration_mode: None,
@@ -2618,11 +2660,21 @@ impl App {
                     let _ = (preset, mode);
                 }
             }
-            AppEvent::PersistModelSelection { model, effort } => {
+            AppEvent::PersistModelSelection {
+                model,
+                effort,
+                context_window,
+                auto_compact_token_limit,
+            } => {
                 let profile = self.active_profile.as_deref();
                 match ConfigEditsBuilder::new(&self.config.codex_home)
                     .with_profile(profile)
-                    .set_model(Some(model.as_str()), effort)
+                    .set_model_selection(
+                        Some(model.as_str()),
+                        effort,
+                        context_window,
+                        auto_compact_token_limit,
+                    )
                     .apply()
                     .await
                 {
@@ -2635,6 +2687,9 @@ impl App {
                         if let Some(label) = Self::reasoning_label_for(&model, effort) {
                             message.push(' ');
                             message.push_str(label);
+                        }
+                        if let Some(context_window) = context_window {
+                            message.push_str(&format!(" ({context_window} context)"));
                         }
                         if let Some(profile) = profile {
                             message.push_str(" for ");
@@ -2894,6 +2949,8 @@ impl App {
                                 windows_sandbox_level: Some(windows_sandbox_level),
                                 model: None,
                                 effort: None,
+                                model_context_window: None,
+                                model_auto_compact_token_limit: None,
                                 summary: None,
                                 service_tier: None,
                                 collaboration_mode: None,
@@ -3439,6 +3496,17 @@ impl App {
         // Instead, explicitly pass the stored collaboration mode's effort into new sessions.
         self.config.model_reasoning_effort = effort;
         self.chat_widget.set_reasoning_effort(effort);
+    }
+
+    fn on_update_model_context_settings(
+        &mut self,
+        context_window: Option<i64>,
+        auto_compact_token_limit: Option<i64>,
+    ) {
+        self.config.model_context_window = context_window;
+        self.config.model_auto_compact_token_limit = auto_compact_token_limit;
+        self.chat_widget
+            .set_model_context_settings(context_window, auto_compact_token_limit);
     }
 
     fn on_update_personality(&mut self, personality: Personality) {
